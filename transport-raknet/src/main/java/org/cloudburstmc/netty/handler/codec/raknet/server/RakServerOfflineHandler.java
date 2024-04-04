@@ -36,6 +36,7 @@ import org.cloudburstmc.netty.util.RakUtils;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,6 +48,8 @@ public class RakServerOfflineHandler extends AdvancedChannelInboundHandler<Datag
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(RakServerOfflineHandler.class);
 
+    private final ThreadLocal<SecureRandom> random = ThreadLocal.withInitial(SecureRandom::new);
+
     private final ExpiringMap<InetSocketAddress, Integer> pendingConnections = ExpiringMap.builder()
             .expiration(10, TimeUnit.SECONDS)
             .expirationPolicy(ExpirationPolicy.CREATED)
@@ -56,6 +59,12 @@ public class RakServerOfflineHandler extends AdvancedChannelInboundHandler<Datag
     private final ExpiringMap<InetAddress, AtomicInteger> packetsCounter = ExpiringMap.builder()
             .expiration(1, TimeUnit.SECONDS)
             .expirationPolicy(ExpirationPolicy.CREATED)
+            .build();
+
+    private final ExpiringMap<InetSocketAddress, Integer> cookies = ExpiringMap.builder()
+            .expiration(10, TimeUnit.SECONDS)
+            .expirationPolicy(ExpirationPolicy.CREATED)
+            .expirationListener((key, value) -> ReferenceCountUtil.release(value))
             .build();
 
     private final RakServerChannel channel;
@@ -176,11 +185,19 @@ public class RakServerOfflineHandler extends AdvancedChannelInboundHandler<Datag
             log.trace("Received duplicate open connection request 1 from {}", sender);
         }
 
-        ByteBuf replyBuffer = ctx.alloc().ioBuffer(28, 28);
+        boolean sendCookie = ctx.channel().config().getOption(RakChannelOption.RAK_SEND_COOKIE);
+        int bufferCapacity = sendCookie ? 32 : 28; // 4 byte cookie
+
+        ByteBuf replyBuffer = ctx.alloc().ioBuffer(bufferCapacity, bufferCapacity);
         replyBuffer.writeByte(ID_OPEN_CONNECTION_REPLY_1);
         replyBuffer.writeBytes(magicBuf, magicBuf.readerIndex(), magicBuf.readableBytes());
         replyBuffer.writeLong(guid);
-        replyBuffer.writeBoolean(false); // Security
+        replyBuffer.writeBoolean(sendCookie); // Security
+        if (sendCookie) {
+            int cookie = this.random.get().nextInt();
+            this.cookies.put(sender, cookie);
+            replyBuffer.writeInt(cookie);
+        }
         replyBuffer.writeShort(RakUtils.clamp(mtu, ctx.channel().config().getOption(RakChannelOption.RAK_MIN_MTU), ctx.channel().config().getOption(RakChannelOption.RAK_MAX_MTU)));
         ctx.writeAndFlush(new DatagramPacket(replyBuffer, sender));
     }
@@ -190,6 +207,21 @@ public class RakServerOfflineHandler extends AdvancedChannelInboundHandler<Datag
         InetSocketAddress sender = packet.sender();
         // Skip already verified magic
         buffer.skipBytes(magicBuf.readableBytes());
+
+        boolean sendCookie = ctx.channel().config().getOption(RakChannelOption.RAK_SEND_COOKIE);
+        if (sendCookie) {
+            int cookie = buffer.readInt();
+            Integer expectedCookie = this.cookies.remove(sender);
+            if (expectedCookie == null || expectedCookie != cookie) {
+                if (log.isTraceEnabled()) {
+                    log.trace("Received open connection request 2 from {} with invalid cookie (expected {}, but received {})", sender, expectedCookie, cookie);
+                }
+                // Incorrect cookie provided
+                // This is likely source IP spoofing so we will not reply
+                return;
+            }
+            buffer.readBoolean(); // Client wrote challenge
+        }
 
         Integer version = this.pendingConnections.remove(sender);
         if (version == null) {

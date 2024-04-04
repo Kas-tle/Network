@@ -46,6 +46,7 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     private volatile int packetLimit = RakConstants.DEFAULT_PACKET_LIMIT;
     private volatile int globalPacketLimit = RakConstants.DEFAULT_GLOBAL_PACKET_LIMIT;
     private volatile int unconnectedPacketLimit = RakConstants.DEFAULT_OFFLINE_PACKET_LIMIT;
+    private volatile boolean sendCookie;
 
     public DefaultRakServerConfig(RakServerChannel channel) {
         super(channel);
@@ -98,6 +99,9 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
         if (option == RakChannelOption.RAK_OFFLINE_PACKET_LIMIT) {
             return (T) Integer.valueOf(this.getUnconnectedPacketLimit());
         }
+        if (option == RakChannelOption.RAK_SEND_COOKIE) {
+            return (T) Boolean.valueOf(this.sendCookie);
+        }
         return this.channel.parent().config().getOption(option);
     }
 
@@ -129,6 +133,8 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
             this.setUnconnectedPacketLimit((Integer) value);
         } else if (option == RakChannelOption.RAK_GLOBAL_PACKET_LIMIT) {
             this.setGlobalPacketLimit((Integer) value);
+        } else if (option == RakChannelOption.RAK_SEND_COOKIE) {
+            this.sendCookie = (Boolean) value;
         } else {
             return this.channel.parent().config().setOption(option, value);
         }
@@ -256,6 +262,11 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     }
 
     @Override
+    public boolean getSendCookie() {
+        return this.sendCookie;
+    }
+
+    @Override
     public int getUnconnectedPacketLimit() {
         return unconnectedPacketLimit;
     }
@@ -273,5 +284,10 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     @Override
     public void setGlobalPacketLimit(int globalPacketLimit) {
         this.globalPacketLimit = globalPacketLimit;
+    }
+
+    @Override
+    public void setSendCookie(boolean sendCookie) {
+        this.sendCookie = sendCookie;
     }
 }
