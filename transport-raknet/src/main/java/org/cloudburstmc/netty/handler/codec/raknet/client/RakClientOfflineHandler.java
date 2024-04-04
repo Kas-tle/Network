@@ -164,11 +164,7 @@ public class RakClientOfflineHandler extends SimpleChannelInboundHandler<ByteBuf
         this.rakChannel.config().setOption(RakChannelOption.RAK_REMOTE_GUID, serverGuid);
 
         this.state = RakOfflineState.HANDSHAKE_2;
-        if (this.security) {
-            this.sendOpenConnectionRequest2(ctx.channel(), this.cookie);
-        } else {
-            this.sendOpenConnectionRequest2(ctx.channel());
-        }
+        this.sendOpenConnectionRequest2(ctx.channel());
     }
 
     private void onOpenConnectionReply2(ChannelHandlerContext ctx, ByteBuf buffer) {
@@ -209,24 +205,13 @@ public class RakClientOfflineHandler extends SimpleChannelInboundHandler<ByteBuf
         int mtuSize = this.rakChannel.config().getOption(RakChannelOption.RAK_MTU);
         ByteBuf magicBuf = this.rakChannel.config().getOption(RakChannelOption.RAK_UNCONNECTED_MAGIC);
 
-        ByteBuf request = channel.alloc().ioBuffer(34);
+        ByteBuf request = channel.alloc().ioBuffer(this.security ? 39 : 34);
         request.writeByte(ID_OPEN_CONNECTION_REQUEST_2);
         request.writeBytes(magicBuf, magicBuf.readerIndex(), magicBuf.readableBytes());
-        RakUtils.writeAddress(request, (InetSocketAddress) channel.remoteAddress());
-        request.writeShort(mtuSize);
-        request.writeLong(this.rakChannel.config().getOption(RakChannelOption.RAK_GUID));
-        channel.writeAndFlush(request);
-    }
-
-    private void sendOpenConnectionRequest2(Channel channel, int cookie) {
-        int mtuSize = this.rakChannel.config().getOption(RakChannelOption.RAK_MTU);
-        ByteBuf magicBuf = this.rakChannel.config().getOption(RakChannelOption.RAK_UNCONNECTED_MAGIC);
-
-        ByteBuf request = channel.alloc().ioBuffer(39);
-        request.writeByte(ID_OPEN_CONNECTION_REQUEST_2);
-        request.writeBytes(magicBuf, magicBuf.readerIndex(), magicBuf.readableBytes());
-        request.writeInt(cookie);
-        request.writeBoolean(false); // Client wrote challenge
+        if (this.security) {
+            request.writeInt(this.cookie);
+            request.writeBoolean(false); // Client wrote challenge
+        }
         RakUtils.writeAddress(request, (InetSocketAddress) channel.remoteAddress());
         request.writeShort(mtuSize);
         request.writeLong(this.rakChannel.config().getOption(RakChannelOption.RAK_GUID));
