@@ -65,11 +65,11 @@ public interface RakServerChannelConfig extends ChannelConfig {
 
     void setGlobalPacketLimit(int limit);
 
-    int getUnconnectedPacketLimit();
-
-    void setUnconnectedPacketLimit(int limit);
+    void setSendCookie(boolean sendCookie);
 
     boolean getSendCookie();
 
-    void setSendCookie(boolean sendCookie);
+    void setMetrics(RakServerMetrics metrics);
+
+    RakServerMetrics getMetrics();
 }

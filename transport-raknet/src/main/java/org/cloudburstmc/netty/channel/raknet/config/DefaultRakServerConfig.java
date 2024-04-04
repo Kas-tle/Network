@@ -45,7 +45,7 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     private volatile int minMtu = RakConstants.MINIMUM_MTU_SIZE;
     private volatile int packetLimit = RakConstants.DEFAULT_PACKET_LIMIT;
     private volatile int globalPacketLimit = RakConstants.DEFAULT_GLOBAL_PACKET_LIMIT;
-    private volatile int unconnectedPacketLimit = RakConstants.DEFAULT_OFFLINE_PACKET_LIMIT;
+    private volatile RakServerMetrics metrics;
     private volatile boolean sendCookie;
 
     public DefaultRakServerConfig(RakServerChannel channel) {
@@ -56,9 +56,9 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     public Map<ChannelOption<?>, Object> getOptions() {
         return getOptions(
                 super.getOptions(),
-                RakChannelOption.RAK_GUID, RakChannelOption.RAK_MAX_CHANNELS, RakChannelOption.RAK_MAX_CONNECTIONS,
-                RakChannelOption.RAK_SUPPORTED_PROTOCOLS, RakChannelOption.RAK_UNCONNECTED_MAGIC, RakChannelOption.RAK_ADVERTISEMENT, 
-                RakChannelOption.RAK_SEND_COOKIE);
+                RakChannelOption.RAK_GUID, RakChannelOption.RAK_MAX_CHANNELS, RakChannelOption.RAK_MAX_CONNECTIONS, RakChannelOption.RAK_SUPPORTED_PROTOCOLS, RakChannelOption.RAK_UNCONNECTED_MAGIC,
+                RakChannelOption.RAK_ADVERTISEMENT, RakChannelOption.RAK_HANDLE_PING, RakChannelOption.RAK_PACKET_LIMIT, RakChannelOption.RAK_GLOBAL_PACKET_LIMIT, RakChannelOption.RAK_SEND_COOKIE,
+                RakChannelOption.RAK_SERVER_METRICS);
     }
 
     @SuppressWarnings("unchecked")
@@ -97,8 +97,8 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
         if (option == RakChannelOption.RAK_GLOBAL_PACKET_LIMIT) {
             return (T) Integer.valueOf(this.getGlobalPacketLimit());
         }
-        if (option == RakChannelOption.RAK_OFFLINE_PACKET_LIMIT) {
-            return (T) Integer.valueOf(this.getUnconnectedPacketLimit());
+        if (option == RakChannelOption.RAK_SERVER_METRICS) {
+            return (T) this.getMetrics();
         }
         if (option == RakChannelOption.RAK_SEND_COOKIE) {
             return (T) Boolean.valueOf(this.sendCookie);
@@ -130,13 +130,13 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
             this.setMinMtu((Integer) value);
         } else if (option == RakChannelOption.RAK_PACKET_LIMIT) {
             this.setPacketLimit((Integer) value);
-        } else if (option == RakChannelOption.RAK_OFFLINE_PACKET_LIMIT) {
-            this.setUnconnectedPacketLimit((Integer) value);
         } else if (option == RakChannelOption.RAK_GLOBAL_PACKET_LIMIT) {
             this.setGlobalPacketLimit((Integer) value);
         } else if (option == RakChannelOption.RAK_SEND_COOKIE) {
             this.sendCookie = (Boolean) value;
-        } else {
+        } else if (option == RakChannelOption.RAK_SERVER_METRICS) {
+            this.setMetrics((RakServerMetrics) value);
+        } else{
             return this.channel.parent().config().setOption(option, value);
         }
         return true;
@@ -263,21 +263,6 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     }
 
     @Override
-    public boolean getSendCookie() {
-        return this.sendCookie;
-    }
-
-    @Override
-    public int getUnconnectedPacketLimit() {
-        return unconnectedPacketLimit;
-    }
-
-    @Override
-    public void setUnconnectedPacketLimit(int unconnectedPacketLimit) {
-        this.unconnectedPacketLimit = unconnectedPacketLimit;
-    }
-
-    @Override
     public int getGlobalPacketLimit() {
         return globalPacketLimit;
     }
@@ -290,5 +275,20 @@ public class DefaultRakServerConfig extends DefaultChannelConfig implements RakS
     @Override
     public void setSendCookie(boolean sendCookie) {
         this.sendCookie = sendCookie;
+    }
+
+    @Override
+    public boolean getSendCookie() {
+        return this.sendCookie;
+    }
+
+    @Override
+    public void setMetrics(RakServerMetrics metrics) {
+        this.metrics = metrics;
+    }
+
+    @Override
+    public RakServerMetrics getMetrics() {
+        return this.metrics;
     }
 }
