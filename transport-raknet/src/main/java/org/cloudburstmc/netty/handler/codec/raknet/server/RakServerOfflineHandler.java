@@ -32,9 +32,11 @@ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.netty.channel.raknet.config.RakServerMetrics;
 import org.cloudburstmc.netty.handler.codec.raknet.AdvancedChannelInboundHandler;
 import org.cloudburstmc.netty.util.RakUtils;
+import org.cloudburstmc.netty.util.SecureAlgorithmProvider;
 
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +48,13 @@ public class RakServerOfflineHandler extends AdvancedChannelInboundHandler<Datag
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(RakServerOfflineHandler.class);
 
-    private final ThreadLocal<SecureRandom> random = ThreadLocal.withInitial(SecureRandom::new);
+    private final ThreadLocal<SecureRandom> random = ThreadLocal.withInitial(() -> {
+        try {
+            return SecureRandom.getInstance(SecureAlgorithmProvider.getSecurityAlgorithm());
+        } catch (NoSuchAlgorithmException e) {
+            return new SecureRandom();
+        }
+    });
 
     private final ExpiringMap<InetSocketAddress, PendingConnection> pendingConnections = ExpiringMap.builder()
             .expiration(10, TimeUnit.SECONDS)
