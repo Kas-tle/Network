@@ -9,18 +9,19 @@ import java.util.stream.Stream;
 
 public class SecureAlgorithmProvider {
     private static final String SECURITY_ALGORITHM;
-    // SecureRandom algorithms in order of most preferred to least preferred.
-    private static List<String> preferredAlgorithms = Arrays.asList(
-        "SHA1PRNG",
-        "NativePRNGNonBlocking",
-        "Windows-PRNG",
-        "NativePRNG",
-        "PKCS11",
-        "DRBG",
-        "NativePRNGBlocking"
-    );
 
     static {
+        // SecureRandom algorithms in order of most preferred to least preferred.
+        private List<String> preferredAlgorithms = Arrays.asList(
+            "SHA1PRNG",
+            "NativePRNGNonBlocking",
+            "Windows-PRNG",
+            "NativePRNG",
+            "PKCS11",
+            "DRBG",
+            "NativePRNGBlocking"
+        );
+
         SECURITY_ALGORITHM = Stream.of(Security.getProviders())
             .flatMap(provider -> provider.getServices().stream())
             .filter(service -> "SecureRandom".equals(service.getType()))
@@ -28,8 +29,6 @@ public class SecureAlgorithmProvider {
             .filter(preferredAlgorithms::contains)
             .min((s1, s2) -> Integer.compare(preferredAlgorithms.indexOf(s1), preferredAlgorithms.indexOf(s2)))
             .orElse(new SecureRandom().getAlgorithm());
-
-        preferredAlgorithms = null;
     }
 
     public static String getSecurityAlgorithm() {
