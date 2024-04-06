@@ -12,7 +12,7 @@ public class SecureAlgorithmProvider {
 
     static {
         // SecureRandom algorithms in order of most preferred to least preferred.
-        private List<String> preferredAlgorithms = Arrays.asList(
+        final List<String> preferredAlgorithms = Arrays.asList(
             "SHA1PRNG",
             "NativePRNGNonBlocking",
             "Windows-PRNG",
